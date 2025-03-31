@@ -33,22 +33,37 @@ export default function SidePanel({
   const { deleteDocument } = useDeleteDocument()
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const powersync = usePowerSync()
-  const { data: uqdata } = useQuery('SELECT user_id, doc_id FROM doc_block')
+  const { data: data_from_doc_block } = useQuery('SELECT user_id, doc_id FROM doc_block')
+  const { data: data_from_block } = useQuery('SELECT id, created_at FROM block')
   
-  useEffect(() => {
-    // Debug table parsing
-    powersync
-      .resolveTables(
-        'SELECT user_id, doc_id, MAX(created_at) as created_at FROM doc_block GROUP BY user_id, doc_id'
-      )
-      .then((tables) => {
-        console.log('Monitored tables:', tables)
-      })
+  // useEffect(() => {
+  //   // Debug table parsing
+  //   powersync
+  //     .resolveTables(
+  //       'SELECT user_id, doc_id, MAX(created_at) as created_at FROM doc_block GROUP BY user_id, doc_id'
+  //     )
+  //     .then((tables) => {
+  //       console.log('Monitored tables:', tables)
+  //     })
 
-    // Other code...
+  //   // Other code...
+  // }, [powersync])
+
+  useEffect(() => {
+    
+    const dispose = powersync.onChange(
+      {
+        onChange: (event) => {
+          console.log('detect table changes:', event.changedTables)
+        }
+      },
+      { tables: ['doc_block', 'block', 'block_to_block'] }
+    )
+    return dispose
   }, [powersync])
 
-  console.log('powerSYnc useQuery updated', uqdata)
+  console.log('powersync useQuery data_from_doc_block updated', data_from_doc_block)
+  console.log('powersync useQuery data_from_block updated', data_from_block)
 
   useEffect(() => {
     // powersync.onChange returns a cleanup function
