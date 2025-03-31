@@ -33,7 +33,9 @@ export default function SidePanel({
   const { deleteDocument } = useDeleteDocument()
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const powersync = usePowerSync()
+  // this hook gives stale data
   const { data: data_from_doc_block } = useQuery('SELECT user_id, doc_id FROM doc_block')
+  // this hook gives correct, latest data
   const { data: data_from_block } = useQuery('SELECT id, created_at FROM block')
   
   // useEffect(() => {
