@@ -17,18 +17,14 @@ export function useDocuments(): { documents: DocumentResult[]; loading: boolean 
   const powersync = usePowerSync()
 
   useEffect(() => {
-    // 创建中止控制器用于清理
     const controller = new AbortController()
 
-    // 使用PowerSync的watch方法实时监听文档列表变化，使用新的SQL查询
     powersync.watch(
       'SELECT user_id, doc_id, MAX(created_at) as created_at FROM doc_block GROUP BY user_id, doc_id',
       [],
       {
         onResult: (results: QueryResult) => {
-          // 将结果转换为正确的类型
           console.log('useDocuments results', results)
-          // 正确访问查询结果的rows属性
           const typedResults = (results.rows?._array as DocumentResult[]) || []
           setDocuments(typedResults)
           setLoading(false)
@@ -40,8 +36,6 @@ export function useDocuments(): { documents: DocumentResult[]; loading: boolean 
       },
       { signal: controller.signal, tables: ['doc_block'] }
     )
-
-    // 组件卸载时取消订阅
     return (): void => {
       controller.abort()
     }
