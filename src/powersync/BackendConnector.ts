@@ -102,6 +102,7 @@ export class SupabaseConnector
       data: { session },
       error
     } = await this.client.auth.getSession()
+    console.log('SupabaseConnector fetchCredentials', session, error)
 
     if (!session || error) {
       throw new Error(`Could not fetch Supabase credentials: ${error}`)

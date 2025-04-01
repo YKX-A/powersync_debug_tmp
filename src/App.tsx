@@ -1,77 +1,86 @@
-import { useState } from "react";
-import SidePanel from "./components/sidePanel";
-import { useCreateDocument } from "./powersync/storage/hooks/useCreateDocument";
-import { useDeleteDocument } from "./powersync/storage/hooks/useDeleteDocument";
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import MainPanel from './components/MainPanel'
+import Login from './components/Login'
+import Register from './components/Register'
+import AuthGuard from './components/AuthGuard'
+import { useSupabase } from './components/providers/context'
+import './App.css'
 
-export default function Index() {
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
-  const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
-  const { createDocument } = useCreateDocument();
-  const { deleteDocument } = useDeleteDocument();
-  
+/**
+ * Main Application Component
+ *
+ * Routes:
+ * 1. / - Home page, redirects to main panel if logged in, or login page if not
+ * 2. /login - Login page
+ * 3. /register - Registration page
+ * 4. /main - Main panel page, requires authentication
+ */
+function App(): React.ReactElement {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const connector = useSupabase()
 
-  // Handle document selection
-  const handleDocumentSelect = (docId: string) => {
-    setSelectedDocId(docId);
-  };
+  // Check authentication status
+  useEffect(() => {
+    if (!connector) return
 
-  // Create new document
-  const handleDocumentCreate = async () => {
-    try {
-      const newDocId = await createDocument();
-      setSelectedDocId(newDocId);
-    } catch (error) {
-      console.error("Failed to create document:", error);
-    }
-  };
+    const checkAuth = async () => {
+      setIsLoading(true)
+      const { data } = await connector.client.auth.getSession()
+      setIsAuthenticated(!!data.session)
+      setIsLoading(false)
 
-  // Delete document
-  const handleDocumentDelete = async (docId: string) => {
-    try {
-      await deleteDocument(docId);
-      if (selectedDocId === docId) {
-        setSelectedDocId(null);
+      // Listen for authentication state changes
+      const { data: authListener } = connector.client.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state changed:', event, !!session)
+        setIsAuthenticated(!!session)
+      })
+
+      return () => {
+        authListener.subscription.unsubscribe()
       }
-    } catch (error) {
-      console.error("Failed to delete document:", error);
     }
-  };
 
-  // Toggle side panel
-  const toggleSidePanel = () => {
-    setIsSidePanelOpen(!isSidePanelOpen);
-  };
+    checkAuth()
+  }, [connector])
+
+  if (!connector) {
+    return <div className="flex justify-center items-center h-screen">Connecting...</div>
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>
+  }
+
+  // Home redirect - logged in users go to main panel, others to login page
+  const HomeRedirect = () => {
+    return isAuthenticated ? <Navigate to="/main" replace /> : <Navigate to="/login" replace />
+  }
 
   return (
-    <div className="flex h-screen justify-center">
-      <div className="flex h-full max-w-6xl w-full">
-        {/* Side Panel */}
-        <SidePanel
-          selectedDocId={selectedDocId}
-          onDocumentSelect={handleDocumentSelect}
-          onDocumentCreate={handleDocumentCreate}
-          onDocumentDelete={handleDocumentDelete}
-          isOpen={isSidePanelOpen}
-          onToggle={toggleSidePanel}
-        />
+    <Routes>
+      {/* Home redirect */}
+      <Route path="/" element={<HomeRedirect />} />
 
-        {/* Main Content Area */}
-        <div className="flex-1 p-6">
-          {selectedDocId ? (
-            <div>
-              <h1 className="text-2xl font-bold mb-4">Document {selectedDocId.substring(0, 8)}</h1>
-              <p className="text-gray-600">Document editor content will be displayed here</p>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold mb-4">👈 Please select or create a document</h2>
-                <p className="text-gray-500">Select a document from the sidebar or create a new one to start editing</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+      {/* Authentication routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Protected routes */}
+      <Route
+        path="/main"
+        element={
+          <AuthGuard>
+            <MainPanel />
+          </AuthGuard>
+        }
+      />
+
+      {/* 404 route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
 }
+
+export default App
